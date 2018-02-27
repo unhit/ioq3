@@ -23,6 +23,9 @@ endif
 ifndef BUILD_AUTOUPDATER  # DON'T build unless you mean to!
   BUILD_AUTOUPDATER=0
 endif
+ifndef BUILD_RENDERER_NULL
+  BUILD_RENDERER_NULL=
+endif
 
 #############################################################################
 #
@@ -238,6 +241,7 @@ SDIR=$(MOUNT_DIR)/server
 RCOMMONDIR=$(MOUNT_DIR)/renderercommon
 RGL1DIR=$(MOUNT_DIR)/renderergl1
 RGL2DIR=$(MOUNT_DIR)/renderergl2
+RNULLDIR=$(MOUNT_DIR)/renderernull
 CMDIR=$(MOUNT_DIR)/qcommon
 SDLDIR=$(MOUNT_DIR)/sdl
 ASMDIR=$(MOUNT_DIR)/asm
@@ -940,10 +944,16 @@ ifneq ($(BUILD_CLIENT),0)
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
       TARGETS += $(B)/renderer_opengl2_$(SHLIBNAME)
     endif
+    ifneq ($(BUILD_RENDERER_NULL),0)
+      TARGETS += $(B)/renderer_null_$(SHLIBNAME)
+    endif
   else
     TARGETS += $(B)/$(CLIENTBIN)$(FULLBINEXT)
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
       TARGETS += $(B)/$(CLIENTBIN)_opengl2$(FULLBINEXT)
+    endif
+    ifneq ($(BUILD_RENDERER_NULL), 0)
+      TARGETS += $(B)/$(CLIENTBIN)_null$(FULLBINEXT)
     endif
   endif
 endif
@@ -1296,6 +1306,7 @@ makedirs:
 	@$(MKDIR) $(B)/renderergl1
 	@$(MKDIR) $(B)/renderergl2
 	@$(MKDIR) $(B)/renderergl2/glsl
+	@$(MKDIR) $(B)/renderernull
 	@$(MKDIR) $(B)/ded
 
 
@@ -1436,6 +1447,9 @@ else
     $(B)/client/con_tty.o
 endif
 
+Q3RNULLOBJ = \
+  $(B)/renderernull/tr_init.o
+
 Q3R2OBJ = \
   $(B)/renderergl2/tr_animation.o \
   $(B)/renderergl2/tr_backend.o \
@@ -1554,6 +1568,13 @@ ifneq ($(USE_RENDERER_DLOPEN), 0)
     $(B)/renderergl1/puff.o \
     $(B)/renderergl1/q_math.o \
     $(B)/renderergl1/tr_subs.o
+
+  Q3RNULLOBJ += \
+    $(B)/renderergl1/q_shared.o \
+    $(B)/renderergl1/puff.o \
+    $(B)/renderergl1/q_math.o \
+    $(B)/renderergl1/tr_subs.o
+
 endif
 
 ifneq ($(USE_INTERNAL_JPEG),0)
@@ -1866,6 +1887,12 @@ $(B)/renderer_opengl2_$(SHLIBNAME): $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ)
 	$(echo_cmd) "LD $@"
 	$(Q)$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ) \
 		$(THREAD_LIBS) $(LIBSDLMAIN) $(RENDERER_LIBS) $(LIBS)
+
+$(B)/renderer_null_$(SHLIBNAME): $(Q3RNULLOBJ)
+	$(echo_cmd) "LD $@"
+	$(Q)$(CC) $(CFLAGS) $(SHLIBLDFLAGS) -o $@ $(Q3RNULLOBJ) \
+		$(THREAD_LIBS) $(LIBS)
+
 else
 $(B)/$(CLIENTBIN)$(FULLBINEXT): $(Q3OBJ) $(Q3ROBJ) $(JPGOBJ) $(LIBSDLMAIN)
 	$(echo_cmd) "LD $@"
@@ -1878,6 +1905,11 @@ $(B)/$(CLIENTBIN)_opengl2$(FULLBINEXT): $(Q3OBJ) $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(J
 	$(Q)$(CC) $(CLIENT_CFLAGS) $(CFLAGS) $(CLIENT_LDFLAGS) $(LDFLAGS) $(NOTSHLIBLDFLAGS) \
 		-o $@ $(Q3OBJ) $(Q3R2OBJ) $(Q3R2STRINGOBJ) $(JPGOBJ) \
 		$(LIBSDLMAIN) $(CLIENT_LIBS) $(RENDERER_LIBS) $(LIBS)
+$(B)/$(CLIENTBIN)_null$(FULLBINEXT): $(Q3OBJ) $(Q3RNULLOBJ)
+	$(echo_cmd) "LD $@"
+	$(Q)$(CC) $(CLIENT_CFLAGS) $(CFLAGS) $(CLIENT_LDFLAGS) $(LDFLAGS) $(NOTSHLIBLDFLAGS) \
+		-o $@ $(Q3OBJ) $(Q3RNULLOBJ) \
+		$(CLIENT_LIBS) $(LIBS)
 endif
 
 ifneq ($(strip $(LIBSDLMAIN)),)
@@ -2112,6 +2144,8 @@ $(B)/renderergl2/%.o: $(RCOMMONDIR)/%.c
 $(B)/renderergl2/%.o: $(RGL2DIR)/%.c
 	$(DO_REF_CC)
 
+$(B)/renderernull/%.o: $(RNULLDIR)/%.c
+	$(DO_REF_CC)
 
 $(B)/ded/%.o: $(ASMDIR)/%.s
 	$(DO_AS)
@@ -2155,7 +2189,7 @@ endif
 # MISC
 #############################################################################
 
-OBJ = $(Q3OBJ) $(Q3ROBJ) $(Q3R2OBJ) $(Q3DOBJ) $(JPGOBJ)
+OBJ = $(Q3OBJ) $(Q3ROBJ) $(Q3R2OBJ) $(Q3RNULLOBJ) $(Q3DOBJ) $(JPGOBJ)
 STRINGOBJ = $(Q3R2STRINGOBJ)
 
 
@@ -2167,9 +2201,15 @@ ifneq ($(BUILD_CLIENT),0)
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
 	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/renderer_opengl2_$(SHLIBNAME) $(COPYBINDIR)/renderer_opengl2_$(SHLIBNAME)
     endif
+    ifneq ($(BUILD_RENDERER_NULL),0)
+	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/renderer_null_$(SHLIBNAME) $(COPYBINDIR)/renderer_null_$(SHLIBNAME)
+    endif
   else
     ifneq ($(BUILD_RENDERER_OPENGL2),0)
 	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/$(CLIENTBIN)_opengl2$(FULLBINEXT) $(COPYBINDIR)/$(CLIENTBIN)_opengl2$(FULLBINEXT)
+    endif
+    ifneq ($(BUILD_RENDERER_NULL),0)
+	$(INSTALL) $(STRIP_FLAG) -m 0755 $(BR)/$(CLIENTBIN)_null$(FULLBINEXT) $(COPYBINDIR)/$(CLIENTBIN)_null$(FULLBINEXT)
     endif
   endif
 endif

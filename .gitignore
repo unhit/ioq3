@@ -49,3 +49,6 @@ profile
 ####################
 CMakeLists.txt
 cmake-build-debug/
+
+# Visual Studio Code
+.vscode/
